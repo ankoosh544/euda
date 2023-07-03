@@ -1,6 +1,8 @@
 <?php
 
 namespace App\Filament\Resources\PlantResource\Pages;
+use Illuminate\Support\Facades\Cache;
+
 
 use App\Filament\Resources\PlantResource;
 use Carbon\Carbon;
@@ -11,6 +13,8 @@ use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Storage;
+use App\Models\Plant;
+use App\Models\Message;
 
 class ViewPlant extends EditRecord
 {
@@ -26,6 +30,7 @@ class ViewPlant extends EditRecord
     public $lastDoorFault;
     public $totalFSR;
     public $lastFSR;
+    public $lastCommunicationTime;
 
     protected function getHeader(): View
     {
@@ -58,32 +63,29 @@ class ViewPlant extends EditRecord
 
     public function getData()
     {
-        // Get files list from AWS S3
-        $contents = Storage::disk('s3')->allFiles('datastore/'.$this->record->datastore.'/__dt='.$this->selectedDate.' 00:00:00/');
-        // $contents = Storage::disk('s3')->allFiles('datastore/mcallinn_data/__dt=2023-06-21 00:00:00/');
-        // error_log(empty($contents));
-        //error_log(implode(" - ", $contents));
+        
 
-        // Check if folder is empty
-        if(empty($contents))
+        $messagesData = Message::with('floorcall', 'doorfault')
+        ->where('plant_id', $this->record->id)
+        ->whereDate('created_at', $this->selectedDate)
+        ->get()
+        ->toJson();
+        $messages = json_decode($messagesData);
+        if(empty($messages))
             return 0;
-
-        foreach ($contents as $k => $file) {
-            // Get file from S3
-            $s3_file = Storage::disk('s3')->get($file);
+        foreach ($messages as $k => $data) {
+           
             // Get file date
-            $fileDate = Carbon::createFromTimestamp(Storage::disk('s3')->lastModified($file))->toDateTimeString();
-            // Unzip and decode file 
-            $string = gzdecode($s3_file);
-            $data = json_decode($string);
-            // Copying first element in $awsObject and then update it based on the data from the other elements
-            if ($k == 0)
+            //$fileDate = Carbon::createFromTimestamp(Storage::disk('s3')->lastModified($file), 'Europe/Rome')->toDateTimeString();
+            if ($k == 0){
                 $awsObject = $data;
+               // dd($awsObject);die();
+            }
             else {
                 // Fill $awsObject with file data
                 $awsObject->fOutOfService = $data->fOutOfService;
                 if($awsObject->fOutOfService)
-                    $this->lastOutService = $fileDate;
+                    $this->lastOutService = $data->created_at;
                 $this->totalOutService += $data->fOutOfService;
 
                 $awsObject->cOutOfService = $data->cOutOfService;
@@ -92,25 +94,27 @@ class ViewPlant extends EditRecord
 
                 $awsObject->fSTR = $data->fSTR;
                 if($awsObject->fSTR)
-                    $this->lastFSR = $fileDate;
+                    $this->lastFSR = $data->updated_at;
                 $this->totalFSR += $data->fSTR;
 
-                foreach ($data->floors as $key => $f) {
-                    $awsObject->floors->$key += $f;
-
-                    // If is last cycle check doorFault
-                    if(count($contents) == ($k+1) && $data->doorsFaultStatus->$key == 2){
-                        $awsObject->doorsFaultStatus->$key = 2;
-                        $this->lastDoorFault = $fileDate;
-                    } else if($data->doorsFaultStatus->$key == 1)
-                        $awsObject->doorsFaultStatus->$key = 1;
+                foreach ($data->floorcall as $key => $floorcall) {
+                    $floor_value = $floorcall->floor_value;
+                    $awsObject->floorcall[$key]->floor_value += $floor_value;
+                   // If it's the last cycle, check doorFault
+                   if (count($messages) == ($k + 1) && $data->doorfault[$key]->doorfault_value == 2) {
+                    $awsObject->doorfault[$key]->doorfault_value = 2;
+                    $this->lastDoorFault = $fileDate;
+                } else if ($data->doorfault[$key]->doorfault_value == 1) {
+                    $awsObject->doorfault[$key]->doorfault_value = 1;
+                }
 
                 }
             }
         }
-
+       // dd($awsObject);die();
         return json_encode($awsObject);
     }
+   
 
     public function statusCheck($awsData) {
         // Check system status

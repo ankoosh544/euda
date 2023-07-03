@@ -34,4 +34,8 @@ class Plant extends Model
     public function getCompleteAddress() {
         return $this->address.", ".$this->cap.", ".$this->city.", ".$this->state;
     }
+    public function messages()
+    {
+        return $this->hasMany(Message::class);
+    }
 }

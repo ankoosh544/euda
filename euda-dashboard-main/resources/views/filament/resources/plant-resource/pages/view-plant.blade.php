@@ -3,8 +3,9 @@
     $floorChart = new \Asantibanez\LivewireCharts\Models\RadarChartModel();
     
     $actualFloor = 0;
-    foreach ($data->floors as $floor) {
-        $floorChart->addSeries('Calls', 'Floor ' . $actualFloor, $floor);
+
+    foreach ($data->floorcall as $floor) {
+        $floorChart->addSeries('Calls', 'Floor ' . $actualFloor, $floor->floor_value);
         $actualFloor++;
     }
 @endphp
@@ -17,7 +18,7 @@
             
             <div class="flex flex-col justify-between gap-3 items-end">
 
-                @include('filament.resources.plant-resource.pages.components.dashboard.header.plant-status', ['status' => $status])
+                @include('filament.resources.plant-resource.pages.components.dashboard.header.plant-status', ['status' => $status, 'last_communication' => $data->created_at])
 
                 @include('filament.resources.plant-resource.pages.components.dashboard.header.plant-date')
 

@@ -2,8 +2,11 @@
     <h1 class="flex items-center rtl:space-x-reverse text-sm font-medium text-gray-500 dark:text-gray-200 mb-2">
         Floors status</h1>
     <div class="flex flex-wrap gap-1">
-        @foreach ($data->doorsFaultStatus as $floor)
-            @if ($floor >= 2)
+        @foreach ($data->doorfault as $floor)
+            @php
+                $floor = (array) $floor; 
+            @endphp
+            @if ($floor['doorfault_value'] >= 2)
                 <div
                     class="group/doorFault relative cursor-default flex items-center text-xs font-bold text-red-800 w-fit bg-red-100 rounded-md px-2 py-0.5">
                     <span class="relative flex h-2 w-2 mr-2">
@@ -18,7 +21,7 @@
                             text-gray-700 dark:text-gray-200 font-normal w-max">
                         A problem with locking the door has been detected</div>
                 </div>
-            @elseif($floor == 1)
+            @elseif($floor['doorfault_value'] == 1)
                 <div
                     class="group/doorFault relative cursor-default flex items-center text-xs font-bold text-yellow-800 w-fit bg-yellow-100 rounded-md px-2 py-0.5">
                     <span class="relative flex h-2 w-2 mr-2">
